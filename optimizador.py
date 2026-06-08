@@ -73,6 +73,6 @@ if st.button("🚀 Calcular Ruta Óptima", type="primary"):
                     
                     # Mostrar el mapa interactivo
                     st.write("### 🗺️ Mapa de la Ruta:")
-                    st.map(datos_mapa, zoom=11)
+                   st.map(datos_mapa, zoom=10)
                   
                     
