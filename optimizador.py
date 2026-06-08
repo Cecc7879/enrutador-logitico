@@ -1,57 +1,85 @@
 import streamlit as st
 import time
-import urllib.parse
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
+from geopy.exc import GeocoderUnavailable
 
-st.set_page_config(page_title="Optimizador de Rutas", page_icon="🚗", layout="centered")
-st.title("🚗 Enrutador Logístico Inteligente")
-st.write("Introduce las direcciones para calcular la ruta más corta para el técnico.")
+# Configuración del buscador con nombre único y más tiempo de espera
+buscador = Nominatim(user_agent="enrutador_logistico_carolina_v1", timeout=10)
 
-direccion_bodega = st.text_input("📍 Dirección de Salida (Bodega):", "Plaza de Armas, Santiago, Chile")
+def obtener_coordenadas(direccion):
+    # Intenta hasta 3 veces conectarse al mapa si está saturado
+    for intento in range(3):
+        try:
+            resultado = buscador.geocode(direccion)
+            return resultado
+        except GeocoderUnavailable:
+            if intento < 2:
+                time.sleep(1.5)  # Espera un segundo y medio antes de reintentar
+                continue
+            else:
+                return None
 
-st.subheader("👥 Clientes del Día")
-cliente_1 = st.text_input("Cliente 1:", "Plaza Baquedano, Providencia, Chile")
-cliente_2 = st.text_input("Cliente 2:", "Costanera Center, Providencia, Chile")
-cliente_3 = st.text_input("Cliente 3:", "Mall Parque Arauco, Las Condes, Chile")
+# Título de la app
+st.title("🚗 Optimizador de Rutas Logísticas")
+st.write("Calcula la ruta más eficiente saliendo desde la bodega.")
+
+# Inputs del usuario
+direccion_bodega = st.text_input("📍 Dirección de la Bodega:", "Santiago, Chile")
+st.markdown("---")
+
+st.write("### 📍 Direcciones de los Clientes:")
+dirección_1 = st.text_input("Cliente 1:")
+dirección_2 = st.text_input("Cliente 2:")
+dirección_3 = st.text_input("Cliente 3:")
 
 if st.button("🚀 Calcular Ruta Óptima", type="primary"):
-    buscador = Nominatim(user_agent="mi_enrutador_final_santiago_cloud")
-    with st.spinner("Buscando direcciones en el mapa y optimizando..."):
-        loc_bodega = buscador.geocode(direccion_bodega)
-        direcciones_clientes = [cliente_1, cliente_2, cliente_3]
-        clientes_coordenadas = []
-        for clie in direcciones_clientes:
-            if clie.strip():
-                loc = buscador.geocode(clie)
-                if loc:
-                    clientes_coordenadas.append({"nombre": clie, "coor": (loc.latitude, loc.longitude)})
-                time.sleep(1)
-
-        if loc_bodega and len(clientes_coordenadas) > 0:
-            coor_actual = (loc_bodega.latitude, loc_bodega.longitude)
-            ruta_ordenada = []
-            while len(clientes_coordenadas) > 0:
-                mas_cercano = None
-                distancia_minima = float('inf')
-                for clie in clientes_coordenadas:
-                    dist = geodesic(coor_actual, clie["coor"]).kilometers
-                    if dist < distancia_minima:
-                        distancia_minima = dist
-                        mas_cercano = clie
-                ruta_ordenada.append((mas_cercano["nombre"], distancia_minima))
-                coor_actual = mas_cercano["coor"]
-                clientes_coordenadas.remove(mas_cercano)
-
-            st.success("¡Ruta optimizada con éxito! 🎉")
-            st.info(f"**Punto de Partida:** {direccion_bodega}")
-            st.write("### ⏱️ Orden de Visitas Sugeridas:")
-            for i, (nombre, dist) in enumerate(ruta_ordenada, 1):
-                st.write("---")
-                st.markdown(f"**Parada {i}:** {nombre}  \n*(a {dist:.2f} km de la parada anterior)*")
-                direccion_codificada = urllib.parse.quote(nombre)
-                enlace_real_maps = f"https://www.google.com/maps/search/?api=1&query={direccion_codificada}"
-                st.link_button("🗺️ Ver en Google Maps", enlace_real_maps)
-            st.balloons()
-        else:
-            st.error("❌ No se pudo encontrar la bodega o no pusiste clientes válidos.")
+    direcciones_clientes = [d.strip() for d in [dirección_1, dirección_2, dirección_3] if d.strip()]
+    
+    if not direcciones_clientes:
+        st.warning("⚠️ Por favor, ingresa al menos la dirección de un cliente.")
+    else:
+        with st.spinner("🔄 Buscando ubicaciones y optimizando el mapa..."):
+            # Buscar coordenadas de la bodega
+            loc_bodega = obtener_coordenadas(direccion_bodega)
+            
+            if not loc_bodega:
+                st.error("📌 El servidor de mapas está muy ocupado. No pudimos ubicar la dirección de la Bodega. Por favor, vuelve a hacer clic en el botón en unos segundos.")
+            else:
+                puntos_validos = []
+                # Buscar coordenadas de los clientes usando la función protegida
+                for i, d in enumerate(direcciones_clientes):
+                    loc_cli = obtener_coordenadas(d)
+                    if loc_cli:
+                        puntos_validos.append({"nombre": f"Cliente {i+1}", "lat": loc_cli.latitude, "lon": loc_cli.longitude})
+                    else:
+                        st.warning(f"⚠️ No se pudo cargar temporalmente la dirección: '{d}'. Quizás el mapa está saturado.")
+                
+                if not puntos_validos:
+                    st.error("❌ No se pudo procesar ninguna dirección de cliente debido a la congestión del servidor. Reintenta en un momento.")
+                else:
+                    # Ordenar por distancia (Ruta Óptima Simple)
+                    ruta_ordenada = []
+                    pos_actual = (loc_bodega.latitude, loc_bodega.longitude)
+                    
+                    while puntos_validos:
+                        proximo = min(puntos_validos, key=lambda p: geodesic(pos_actual, (p["lat"], p["lon"])).kilometers)
+                        ruta_ordenada.append(proximo)
+                        pos_actual = (proximo["lat"], proximo["lon"])
+                        puntos_validos.remove(proximo)
+                    
+                    # Mostrar resultados
+                    st.success("✨ ¡Ruta optimizada con éxito!")
+                    st.write("### 📋 Orden del recorrido recomendado:")
+                    st.write(f"**Salida:** Bodega ({direccion_bodega})")
+                    
+                    datos_mapa = [{"lat": loc_bodega.latitude, "lon": loc_bodega.longitude, "📍": "Bodega"}]
+                    for idx, p in enumerate(ruta_ordenada):
+                        st.write(f"➡️ **Paso {idx+1}:** {p['nombre']}")
+                        datos_mapa.append({"lat": p["lat"], "lon": p["lon"], "📍": p["nombre"]})
+                    
+                    # Mostrar el mapa interactivo
+                    st.write("### 🗺️ Mapa de la Ruta:")
+                    st.map(datos_mapa)
+                   
+                    
