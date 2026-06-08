@@ -61,7 +61,7 @@ if st.button("🚀 Calcular Ruta Óptima", type="primary"):
                         pos_actual = (proximo["lat"], proximo["lon"])
                         puntos_validos.remove(proximo)
                     
-                    # Mostrar resultados
+                  # Mostrar resultados
                     st.success("✨ ¡Ruta optimizada con éxito!")
                     st.write("### 📋 Orden del recorrido recomendado:")
                     st.write(f"**Salida:** Bodega ({direccion_bodega})")
@@ -71,7 +71,7 @@ if st.button("🚀 Calcular Ruta Óptima", type="primary"):
                         st.write(f"➡️ **Paso {idx+1}:** {p['nombre']}")
                         datos_mapa.append({"lat": p["lat"], "lon": p["lon"], "📍": p["nombre"]})
                     
-                    # Mostrar el mapa interactivo
-                   st.write("### 🗺️ Mapa de la Ruta:")
+                    # Mostrar el mapa interactivo con zoom controlado
+                    st.write("### 🗺️ Mapa de la Ruta:")
                     st.map(datos_mapa, zoom=10)
                     
