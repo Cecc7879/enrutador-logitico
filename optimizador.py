@@ -2,20 +2,20 @@ import streamlit as st
 import time
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
-from geopy.exc import GeocoderUnavailable
 
-# Configuración del buscador con nombre único y más tiempo de espera
-buscador = Nominatim(user_agent="enrutador_logistico_carolina_v1", timeout=10)
+# Configuración del buscador con un nombre único y tiempos amplios
+buscador = Nominatim(user_agent="enrutador_logistico_carolina_final_v2", timeout=15)
 
 def obtener_coordenadas(direccion):
-    # Intenta hasta 3 veces conectarse al mapa si está saturado
+    # Pausa de seguridad para respetar el límite del servidor gratuito
+    time.sleep(1.5)
     for intento in range(3):
         try:
             resultado = buscador.geocode(direccion)
             return resultado
-        except GeocoderUnavailable:
+        except Exception:
             if intento < 2:
-                time.sleep(1.5)  # Espera un segundo y medio antes de reintentar
+                time.sleep(2)
                 continue
             else:
                 return None
@@ -39,26 +39,26 @@ if st.button("🚀 Calcular Ruta Óptima", type="primary"):
     if not direcciones_clientes:
         st.warning("⚠️ Por favor, ingresa al menos la dirección de un cliente.")
     else:
-        with st.spinner("🔄 Buscando ubicaciones y optimizando el mapa..."):
+        with st.spinner("🔄 Buscando ubicaciones con pausas de seguridad (esto evita bloqueos)..."):
             # Buscar coordenadas de la bodega
             loc_bodega = obtener_coordenadas(direccion_bodega)
             
             if not loc_bodega:
-                st.error("📌 El servidor de mapas está muy ocupado. No pudimos ubicar la dirección de la Bodega. Por favor, vuelve a hacer clic en el botón en unos segundos.")
+                st.error("📌 El servidor de mapas está respondiendo lento. Por favor, vuelve a intentar en unos segundos.")
             else:
                 puntos_validos = []
-                # Buscar coordenadas de los clientes usando la función protegida
+                # Buscar coordenadas de los clientes
                 for i, d in enumerate(direcciones_clientes):
                     loc_cli = obtener_coordenadas(d)
                     if loc_cli:
                         puntos_validos.append({"nombre": f"Cliente {i+1}", "lat": loc_cli.latitude, "lon": loc_cli.longitude})
                     else:
-                        st.warning(f"⚠️ No se pudo cargar temporalmente la dirección: '{d}'. Quizás el mapa está saturado.")
+                        st.warning(f"⚠️ No se pudo cargar la dirección: '{d}'. Reintenta en un momento.")
                 
                 if not puntos_validos:
-                    st.error("❌ No se pudo procesar ninguna dirección de cliente debido a la congestión del servidor. Reintenta en un momento.")
+                    st.error("❌ El servidor sigue saturado. Espera 10 segundos y vuelve a presionar el botón.")
                 else:
-                    # Ordenar por distancia (Ruta Óptima Simple)
+                    # Ordenar por distancia
                     ruta_ordenada = []
                     pos_actual = (loc_bodega.latitude, loc_bodega.longitude)
                     
@@ -81,7 +81,5 @@ if st.button("🚀 Calcular Ruta Óptima", type="primary"):
                     # Mostrar el mapa interactivo
                     st.write("### 🗺️ Mapa de la Ruta:")
                     st.map(datos_mapa)
-            
-                       
                   
                     
