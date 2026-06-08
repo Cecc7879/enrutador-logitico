@@ -1,24 +1,17 @@
 import streamlit as st
 import time
-from geopy.geocoders import Nominatim
+from geopy.geocoders import ArcGIS
 from geopy.distance import geodesic
 
-# Configuración del buscador con un nombre único y tiempos amplios
-buscador = Nominatim(user_agent="enrutador_logistico_carolina_final_v2", timeout=15)
+# Cambiamos al buscador de ArcGIS (más rápido y sin límites estrictos)
+buscador = ArcGIS(timeout=15)
 
 def obtener_coordenadas(direccion):
-    # Pausa de seguridad para respetar el límite del servidor gratuito
-    time.sleep(1.5)
-    for intento in range(3):
-        try:
-            resultado = buscador.geocode(direccion)
-            return resultado
-        except Exception:
-            if intento < 2:
-                time.sleep(2)
-                continue
-            else:
-                return None
+    try:
+        resultado = buscador.geocode(direccion)
+        return resultado
+    except Exception:
+        return None
 
 # Título de la app
 st.title("🚗 Optimizador de Rutas Logísticas")
@@ -39,12 +32,12 @@ if st.button("🚀 Calcular Ruta Óptima", type="primary"):
     if not direcciones_clientes:
         st.warning("⚠️ Por favor, ingresa al menos la dirección de un cliente.")
     else:
-        with st.spinner("🔄 Buscando ubicaciones con pausas de seguridad (esto evita bloqueos)..."):
+        with st.spinner("🔄 Buscando ubicaciones en el mapa al instante..."):
             # Buscar coordenadas de la bodega
             loc_bodega = obtener_coordenadas(direccion_bodega)
             
             if not loc_bodega:
-                st.error("📌 El servidor de mapas está respondiendo lento. Por favor, vuelve a intentar en unos segundos.")
+                st.error("📌 El servidor de mapas no pudo ubicar la dirección de la Bodega. Revisa si está bien escrita.")
             else:
                 puntos_validos = []
                 # Buscar coordenadas de los clientes
@@ -53,10 +46,10 @@ if st.button("🚀 Calcular Ruta Óptima", type="primary"):
                     if loc_cli:
                         puntos_validos.append({"nombre": f"Cliente {i+1}", "lat": loc_cli.latitude, "lon": loc_cli.longitude})
                     else:
-                        st.warning(f"⚠️ No se pudo cargar la dirección: '{d}'. Reintenta en un momento.")
+                        st.warning(f"⚠️ No se pudo ubicar la dirección: '{d}'. Revisa si está bien escrita.")
                 
                 if not puntos_validos:
-                    st.error("❌ El servidor sigue saturado. Espera 10 segundos y vuelve a presionar el botón.")
+                    st.error("❌ No se pudo procesar ninguna dirección de cliente.")
                 else:
                     # Ordenar por distancia
                     ruta_ordenada = []
